@@ -73,6 +73,13 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { color: #1c1c1c !important; }
     .stTabs [aria-selected="true"] { color: #e07b39 !important; }
 
+    /* Selectbox — force light background and dark text */
+    [data-baseweb="select"] * { background-color: #ffffff !important; color: #1c1c1c !important; }
+    [data-baseweb="popover"] * { background-color: #ffffff !important; color: #1c1c1c !important; }
+    [data-baseweb="menu"] { background-color: #ffffff !important; }
+    [role="option"] { background-color: #ffffff !important; color: #1c1c1c !important; }
+    [role="option"]:hover { background-color: #f0f0f0 !important; }
+
     /* Markdown text */
     .stMarkdown, .stMarkdown p { color: #1c1c1c !important; }
 
