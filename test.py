@@ -58,10 +58,23 @@ if not st.session_state["authenticated"]:
 
 st.markdown("""
     <style>
-    .stApp { background-color: #FCFCFC; }
-    h1, h2, h3 { color: #1c1c1c; font-family: 'Georgia', serif; }
+    /* ── FORCE LIGHT THEME ALWAYS ── */
+    .stApp { background-color: #FCFCFC !important; color: #1c1c1c !important; }
+    h1, h2, h3, h4, p, span, label, div { color: #1c1c1c !important; font-family: 'Georgia', serif; }
     .stDataFrame { border: 1px solid #eaeaea; border-radius: 5px; }
     .css-1d391kg { background-color: #f4f4f4; }
+
+    /* Force metric values and labels to be visible */
+    [data-testid="stMetricValue"] { color: #1c1c1c !important; font-size: 1.4rem !important; }
+    [data-testid="stMetricLabel"] { color: #555555 !important; }
+    [data-testid="stMetricDelta"] { color: #555555 !important; }
+
+    /* Tabs text */
+    .stTabs [data-baseweb="tab"] { color: #1c1c1c !important; }
+    .stTabs [aria-selected="true"] { color: #e07b39 !important; }
+
+    /* Markdown text */
+    .stMarkdown, .stMarkdown p { color: #1c1c1c !important; }
 
     /* ── MOBILE RESPONSIVE ── */
     @media (max-width: 768px) {
@@ -456,8 +469,8 @@ with tab_intel:
                 labels={'Price': 'Price (LBP)', 'Item': 'Menu Item'}
             )
             fig.update_traces(texttemplate='LBP %{text:,.0f}', textposition='outside')
-            fig.update_layout(margin=dict(t=50, b=20), xaxis_tickangle=-30)
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(margin=dict(t=50, b=20), xaxis_tickangle=-30, template="plotly_white")
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
         else:
             st.info("No matching items found across menus. Try lowering the similarity threshold above.")
@@ -512,8 +525,8 @@ with tab_analytics:
             labels={'date': 'Date'}
         )
         fig_sales.update_traces(marker=dict(size=8))
-        fig_sales.update_layout(margin=dict(t=40, b=20))
-        st.plotly_chart(fig_sales, use_container_width=True)
+        fig_sales.update_layout(margin=dict(t=40, b=20), template="plotly_white")
+        st.plotly_chart(fig_sales, use_container_width=True, config={"displayModeBar": False})
 
     st.markdown("---")
 
@@ -550,8 +563,8 @@ with tab_analytics:
             labels={'date': 'Date', 'quantity': 'Units Sold', 'branch': 'Branch'}
         )
         fig_cat.update_traces(textposition='outside')
-        fig_cat.update_layout(margin=dict(t=40, b=20))
-        st.plotly_chart(fig_cat, use_container_width=True)
+        fig_cat.update_layout(margin=dict(t=40, b=20), template="plotly_white")
+        st.plotly_chart(fig_cat, use_container_width=True, config={"displayModeBar": False})
 
     st.markdown("---")
 
@@ -591,5 +604,5 @@ with tab_analytics:
             labels={'date': 'Date', 'quantity': 'Units Sold', 'branch': 'Branch'}
         )
         fig_item.update_traces(textposition='outside')
-        fig_item.update_layout(margin=dict(t=40, b=20))
-        st.plotly_chart(fig_item, use_container_width=True)
+        fig_item.update_layout(margin=dict(t=40, b=20), template="plotly_white")
+        st.plotly_chart(fig_item, use_container_width=True, config={"displayModeBar": False})
