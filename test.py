@@ -62,6 +62,47 @@ st.markdown("""
     h1, h2, h3 { color: #1c1c1c; font-family: 'Georgia', serif; }
     .stDataFrame { border: 1px solid #eaeaea; border-radius: 5px; }
     .css-1d391kg { background-color: #f4f4f4; }
+
+    /* ── MOBILE RESPONSIVE ── */
+    @media (max-width: 768px) {
+
+        /* Remove excessive padding so content fills the screen */
+        .main .block-container {
+            padding: 0.75rem 0.75rem 1rem 0.75rem !important;
+            max-width: 100% !important;
+        }
+
+        /* Stack all columns vertically */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+
+        /* Bigger touch targets for buttons */
+        .stButton > button {
+            height: 3rem !important;
+            font-size: 1rem !important;
+            width: 100% !important;
+        }
+
+        /* Larger text inputs on mobile */
+        input[type="text"], input[type="password"] {
+            font-size: 1rem !important;
+            height: 2.8rem !important;
+        }
+
+        /* Shrink logo on mobile so it doesn't dominate */
+        img { max-width: 120px !important; }
+
+        /* Give charts a minimum height for readability */
+        .js-plotly-plot { min-height: 320px; }
+
+        /* Reduce heading sizes */
+        h1 { font-size: 1.4rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        h3 { font-size: 1rem !important; }
+    }
     </style>
 """, unsafe_allow_html=True)
 
