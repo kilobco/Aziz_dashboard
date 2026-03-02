@@ -78,10 +78,23 @@ st.markdown("""
     [data-testid="stSidebar"] * { color: #1c1c1c !important; }
     [data-testid="stSidebar"] .stButton > button { background-color: #ffffff !important; border: 1px solid #cccccc !important; }
 
-    /* File uploader — force light */
-    [data-testid="stFileUploader"] { background-color: #ffffff !important; border: 2px dashed #cccccc !important; }
+    /* File uploader — force light on every internal element */
+    [data-testid="stFileUploader"],
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileDropzone"],
+    [data-testid="stFileDropzone"] > div,
+    .st-emotion-cache-u8yk7a,
+    [data-testid="stFileUploader"] label { background-color: #ffffff !important; }
     [data-testid="stFileUploader"] * { color: #1c1c1c !important; }
-    [data-testid="stFileDropzone"] { background-color: #ffffff !important; }
+    [data-testid="stFileDropzone"] { border: 2px dashed #aaaaaa !important; border-radius: 8px !important; }
+
+    /* Browse files button inside uploader */
+    [data-testid="stFileUploader"] button,
+    [data-testid="stFileDropzone"] button {
+        background-color: #f0f0f0 !important;
+        color: #1c1c1c !important;
+        border: 1px solid #aaaaaa !important;
+    }
 
     /* Selectbox — force light background and dark text */
     [data-baseweb="select"] * { background-color: #ffffff !important; color: #1c1c1c !important; }
