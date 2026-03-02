@@ -73,6 +73,16 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] { color: #1c1c1c !important; }
     .stTabs [aria-selected="true"] { color: #e07b39 !important; }
 
+    /* Sidebar — force light background and dark text */
+    [data-testid="stSidebar"] { background-color: #f4f4f4 !important; }
+    [data-testid="stSidebar"] * { color: #1c1c1c !important; }
+    [data-testid="stSidebar"] .stButton > button { background-color: #ffffff !important; border: 1px solid #cccccc !important; }
+
+    /* File uploader — force light */
+    [data-testid="stFileUploader"] { background-color: #ffffff !important; border: 2px dashed #cccccc !important; }
+    [data-testid="stFileUploader"] * { color: #1c1c1c !important; }
+    [data-testid="stFileDropzone"] { background-color: #ffffff !important; }
+
     /* Selectbox — force light background and dark text */
     [data-baseweb="select"] * { background-color: #ffffff !important; color: #1c1c1c !important; }
     [data-baseweb="popover"] * { background-color: #ffffff !important; color: #1c1c1c !important; }
