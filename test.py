@@ -12,6 +12,8 @@ from pathlib import Path
 from difflib import SequenceMatcher
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
+import gspread
+from google.oauth2.service_account import Credentials
 
 load_dotenv()
 
@@ -287,7 +289,62 @@ with st.sidebar:
 
                 if all_extracted_data:
                     st.session_state['extracted_data'] = pd.concat(all_extracted_data, ignore_index=True)
-                    st.success("Analysis Complete!")
+                    save_to_sheet(st.session_state['extracted_data'])
+                    load_from_sheet.clear()
+                    st.success("Analysis Complete! Data saved.")
+
+# -----------------------------------------
+# GOOGLE SHEETS PERSISTENCE
+# -----------------------------------------
+@st.cache_resource
+def get_gsheet():
+    try:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=["https://www.googleapis.com/auth/spreadsheets"]
+        )
+        gc = gspread.authorize(creds)
+        sheet = gc.open_by_url(st.secrets["SHEET_URL"]).sheet1
+        if not sheet.row_values(1):
+            sheet.append_row(["date", "Source Menu", "item", "weight", "price"])
+        return sheet
+    except Exception:
+        return None
+
+def save_to_sheet(df):
+    sheet = get_gsheet()
+    if sheet is None:
+        return
+    date_str = pd.Timestamp.now().strftime("%Y-%m-%d")
+    rows = []
+    for _, row in df.iterrows():
+        w = row.get('weight', '')
+        rows.append([
+            date_str,
+            str(row.get('Source Menu', '')),
+            str(row.get('item', '')),
+            str(w) if pd.notna(w) and w != '' else '',
+            float(row['price'])
+        ])
+    if rows:
+        sheet.append_rows(rows, value_input_option='USER_ENTERED')
+
+@st.cache_data(ttl=30)
+def load_from_sheet():
+    sheet = get_gsheet()
+    if sheet is None:
+        return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
+    try:
+        records = sheet.get_all_records()
+        if not records:
+            return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
+        df = pd.DataFrame(records)
+        df['price'] = pd.to_numeric(df['price'], errors='coerce')
+        df = df.dropna(subset=['price'])
+        df['weight'] = df['weight'].replace('', None)
+        return df
+    except Exception:
+        return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
 
 # -----------------------------------------
 # SIMILARITY MATCHING
@@ -417,8 +474,19 @@ tab_intel, tab_analytics = st.tabs(["🔍 Price Intelligence", "📊 Analytics"]
 
 # ── TAB 1: PRICE INTELLIGENCE ──────────────────────────────────────────────
 with tab_intel:
-    if 'extracted_data' in st.session_state and not st.session_state['extracted_data'].empty:
+    sheet_df = load_from_sheet()
+
+    if not sheet_df.empty:
+        available_dates = sorted(sheet_df['date'].unique(), reverse=True)
+        selected_date = st.selectbox("📅 Select date", available_dates, index=0)
+        current_df = sheet_df[sheet_df['date'] == selected_date].drop(columns=['date']).reset_index(drop=True)
+    elif 'extracted_data' in st.session_state and not st.session_state['extracted_data'].empty:
+        # Fallback to session state if sheets not configured
         current_df = st.session_state['extracted_data']
+    else:
+        current_df = pd.DataFrame()
+
+    if not current_df.empty:
 
         with st.expander("📋 All Extracted Raw Data", expanded=False):
             st.dataframe(current_df, use_container_width=True)
@@ -505,7 +573,9 @@ with tab_intel:
         else:
             st.info("No matching items found across menus. Try lowering the similarity threshold above.")
     else:
-        st.info("Upload menu images in the sidebar and click 'Analyze' to get started.")
+        st.info("Upload menu images in the sidebar and click 'Analyze' to get started."
+                if get_gsheet() is None else
+                "No data yet. Upload menu images in the sidebar and click 'Analyze' to get started.")
 
 
 # ── TAB 2: ANALYTICS ───────────────────────────────────────────────────────
