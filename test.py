@@ -226,6 +226,51 @@ def analyze_menu_image(image, filename="Unknown"):
         return None, filename
 
 # -----------------------------------------
+# SUPABASE PERSISTENCE
+# -----------------------------------------
+@st.cache_resource
+def get_supabase():
+    try:
+        return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    except Exception:
+        return None
+
+def save_to_sheet(df):
+    client = get_supabase()
+    if client is None:
+        return
+    date_str = pd.Timestamp.now().strftime("%Y-%m-%d")
+    rows = []
+    for _, row in df.iterrows():
+        w = row.get('weight', '')
+        rows.append({
+            "date": date_str,
+            "source_menu": str(row.get('Source Menu', '')),
+            "item": str(row.get('item', '')),
+            "weight": str(w) if pd.notna(w) and w != '' else None,
+            "price": float(row['price'])
+        })
+    if rows:
+        client.table("price_intelligence").insert(rows).execute()
+
+@st.cache_data(ttl=30)
+def load_from_sheet():
+    client = get_supabase()
+    if client is None:
+        return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
+    try:
+        response = client.table("price_intelligence").select("*").order("date", desc=True).execute()
+        if not response.data:
+            return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
+        df = pd.DataFrame(response.data)
+        df = df.rename(columns={'source_menu': 'Source Menu'})
+        df['price'] = pd.to_numeric(df['price'], errors='coerce')
+        df = df.dropna(subset=['price'])
+        return df[['date', 'Source Menu', 'item', 'weight', 'price']]
+    except Exception:
+        return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
+
+# -----------------------------------------
 # SIDEBAR: UPLOAD & ANALYZE
 # -----------------------------------------
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp'}
@@ -291,51 +336,6 @@ with st.sidebar:
                     save_to_sheet(st.session_state['extracted_data'])
                     load_from_sheet.clear()
                     st.success("Analysis Complete! Data saved.")
-
-# -----------------------------------------
-# SUPABASE PERSISTENCE
-# -----------------------------------------
-@st.cache_resource
-def get_supabase():
-    try:
-        return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-    except Exception:
-        return None
-
-def save_to_sheet(df):
-    client = get_supabase()
-    if client is None:
-        return
-    date_str = pd.Timestamp.now().strftime("%Y-%m-%d")
-    rows = []
-    for _, row in df.iterrows():
-        w = row.get('weight', '')
-        rows.append({
-            "date": date_str,
-            "source_menu": str(row.get('Source Menu', '')),
-            "item": str(row.get('item', '')),
-            "weight": str(w) if pd.notna(w) and w != '' else None,
-            "price": float(row['price'])
-        })
-    if rows:
-        client.table("price_intelligence").insert(rows).execute()
-
-@st.cache_data(ttl=30)
-def load_from_sheet():
-    client = get_supabase()
-    if client is None:
-        return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
-    try:
-        response = client.table("price_intelligence").select("*").order("date", desc=True).execute()
-        if not response.data:
-            return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
-        df = pd.DataFrame(response.data)
-        df = df.rename(columns={'source_menu': 'Source Menu'})
-        df['price'] = pd.to_numeric(df['price'], errors='coerce')
-        df = df.dropna(subset=['price'])
-        return df[['date', 'Source Menu', 'item', 'weight', 'price']]
-    except Exception:
-        return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
 
 # -----------------------------------------
 # SIMILARITY MATCHING
