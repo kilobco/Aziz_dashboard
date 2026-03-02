@@ -12,8 +12,7 @@ from pathlib import Path
 from difflib import SequenceMatcher
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
-import gspread
-from google.oauth2.service_account import Credentials
+from supabase import create_client
 
 load_dotenv()
 
@@ -294,55 +293,47 @@ with st.sidebar:
                     st.success("Analysis Complete! Data saved.")
 
 # -----------------------------------------
-# GOOGLE SHEETS PERSISTENCE
+# SUPABASE PERSISTENCE
 # -----------------------------------------
 @st.cache_resource
-def get_gsheet():
+def get_supabase():
     try:
-        creds = Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"],
-            scopes=["https://www.googleapis.com/auth/spreadsheets"]
-        )
-        gc = gspread.authorize(creds)
-        sheet = gc.open_by_url(st.secrets["SHEET_URL"]).sheet1
-        if not sheet.row_values(1):
-            sheet.append_row(["date", "Source Menu", "item", "weight", "price"])
-        return sheet
+        return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     except Exception:
         return None
 
 def save_to_sheet(df):
-    sheet = get_gsheet()
-    if sheet is None:
+    client = get_supabase()
+    if client is None:
         return
     date_str = pd.Timestamp.now().strftime("%Y-%m-%d")
     rows = []
     for _, row in df.iterrows():
         w = row.get('weight', '')
-        rows.append([
-            date_str,
-            str(row.get('Source Menu', '')),
-            str(row.get('item', '')),
-            str(w) if pd.notna(w) and w != '' else '',
-            float(row['price'])
-        ])
+        rows.append({
+            "date": date_str,
+            "source_menu": str(row.get('Source Menu', '')),
+            "item": str(row.get('item', '')),
+            "weight": str(w) if pd.notna(w) and w != '' else None,
+            "price": float(row['price'])
+        })
     if rows:
-        sheet.append_rows(rows, value_input_option='USER_ENTERED')
+        client.table("price_intelligence").insert(rows).execute()
 
 @st.cache_data(ttl=30)
 def load_from_sheet():
-    sheet = get_gsheet()
-    if sheet is None:
+    client = get_supabase()
+    if client is None:
         return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
     try:
-        records = sheet.get_all_records()
-        if not records:
+        response = client.table("price_intelligence").select("*").order("date", desc=True).execute()
+        if not response.data:
             return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
-        df = pd.DataFrame(records)
+        df = pd.DataFrame(response.data)
+        df = df.rename(columns={'source_menu': 'Source Menu'})
         df['price'] = pd.to_numeric(df['price'], errors='coerce')
         df = df.dropna(subset=['price'])
-        df['weight'] = df['weight'].replace('', None)
-        return df
+        return df[['date', 'Source Menu', 'item', 'weight', 'price']]
     except Exception:
         return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
 
@@ -573,9 +564,7 @@ with tab_intel:
         else:
             st.info("No matching items found across menus. Try lowering the similarity threshold above.")
     else:
-        st.info("Upload menu images in the sidebar and click 'Analyze' to get started."
-                if get_gsheet() is None else
-                "No data yet. Upload menu images in the sidebar and click 'Analyze' to get started.")
+        st.info("No data yet. Upload menu images in the sidebar and click 'Analyze' to get started.")
 
 
 # ── TAB 2: ANALYTICS ───────────────────────────────────────────────────────
