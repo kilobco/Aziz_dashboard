@@ -65,6 +65,7 @@ st.markdown("""
     .stDataFrame { border: 1px solid #eaeaea; border-radius: 5px; }
     .css-1d391kg { background-color: #f4f4f4; }
 
+
     /* Force metric values and labels to be visible */
     [data-testid="stMetricValue"] { color: #1c1c1c !important; font-size: 1.4rem !important; }
     [data-testid="stMetricLabel"] { color: #555555 !important; }
@@ -516,16 +517,28 @@ with tab_intel:
 
             pivot_df = pd.DataFrame(table_rows).set_index('Item').fillna('—')
 
-            # Apply column colours via Styler
-            def color_columns(df):
-                styles = pd.DataFrame('', index=df.index, columns=df.columns)
-                for col in df.columns:
-                    if col in col_colors:
-                        styles[col] = f'background-color: {col_colors[col]};'
-                return styles
+            # Render as HTML table so CSS can fully control light/dark styling
+            header_cells = "<th style='background:#2a2a2a;color:#ffffff;padding:8px 12px;text-align:left;'>Item</th>"
+            for col in pivot_df.columns:
+                bg = col_colors.get(col, '#ffffff')
+                header_cells += f"<th style='background:{bg};color:#1c1c1c;padding:8px 12px;text-align:left;border-left:1px solid #ddd;'>{col}</th>"
 
-            styled = pivot_df.style.apply(color_columns, axis=None)
-            st.dataframe(styled, use_container_width=True)
+            body_rows = ""
+            for i, (item, row) in enumerate(pivot_df.iterrows()):
+                row_bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+                body_rows += f"<tr><td style='background:{row_bg};color:#1c1c1c;padding:8px 12px;font-weight:600;border-top:1px solid #eee;'>{item}</td>"
+                for col in pivot_df.columns:
+                    cell_bg = col_colors.get(col, row_bg)
+                    body_rows += f"<td style='background:{cell_bg};color:#1c1c1c;padding:8px 12px;border-left:1px solid #ddd;border-top:1px solid #eee;'>{row[col]}</td>"
+                body_rows += "</tr>"
+
+            html_table = f"""
+            <div style='overflow-x:auto;border-radius:8px;border:1px solid #ddd;'>
+            <table style='width:100%;border-collapse:collapse;font-family:Georgia,serif;font-size:0.9rem;'>
+                <thead><tr>{header_cells}</tr></thead>
+                <tbody>{body_rows}</tbody>
+            </table></div>"""
+            st.markdown(html_table, unsafe_allow_html=True)
 
 
 
