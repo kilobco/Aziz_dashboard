@@ -238,20 +238,24 @@ def get_supabase():
 def save_to_sheet(df):
     client = get_supabase()
     if client is None:
+        st.warning("Supabase not connected — data not saved.")
         return
-    date_str = pd.Timestamp.now().strftime("%Y-%m-%d")
-    rows = []
-    for _, row in df.iterrows():
-        w = row.get('weight', '')
-        rows.append({
-            "date": date_str,
-            "source_menu": str(row.get('Source Menu', '')),
-            "item": str(row.get('item', '')),
-            "weight": str(w) if pd.notna(w) and w != '' else None,
-            "price": float(row['price'])
-        })
-    if rows:
-        client.table("price_intelligence").insert(rows).execute()
+    try:
+        date_str = pd.Timestamp.now().strftime("%Y-%m-%d")
+        rows = []
+        for _, row in df.iterrows():
+            w = row.get('weight', '')
+            rows.append({
+                "date": date_str,
+                "source_menu": str(row.get('Source Menu', '')),
+                "item": str(row.get('item', '')),
+                "weight": str(w) if pd.notna(w) and w != '' else None,
+                "price": float(row['price'])
+            })
+        if rows:
+            client.table("price_intelligence").insert(rows).execute()
+    except Exception as e:
+        st.error(f"Failed to save to database: {e}")
 
 @st.cache_data(ttl=30)
 def load_from_sheet():
@@ -267,7 +271,8 @@ def load_from_sheet():
         df['price'] = pd.to_numeric(df['price'], errors='coerce')
         df = df.dropna(subset=['price'])
         return df[['date', 'Source Menu', 'item', 'weight', 'price']]
-    except Exception:
+    except Exception as e:
+        st.error(f"Failed to load from database: {e}")
         return pd.DataFrame(columns=['date', 'Source Menu', 'item', 'weight', 'price'])
 
 # -----------------------------------------
