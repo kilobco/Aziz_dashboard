@@ -527,14 +527,7 @@ with tab_intel:
             styled = pivot_df.style.apply(color_columns, axis=None)
             st.dataframe(styled, use_container_width=True)
 
-            # Colour legend
-            legend_cols = st.columns(len(all_restaurants))
-            for i, rest in enumerate(all_restaurants):
-                legend_cols[i].markdown(
-                    f'<div style="background:{col_colors[rest]};padding:6px 10px;'
-                    f'border-radius:6px;text-align:center;font-weight:600;">{rest}</div>',
-                    unsafe_allow_html=True
-                )
+
 
             st.markdown("---")
             st.subheader("Price Comparison Chart")
