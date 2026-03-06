@@ -514,7 +514,7 @@ with col_logo:
 with col_title:
     st.markdown(
         "# Aziz Delicatesse: Competitor Price Intelligence "
-        "<span style='color:red;font-size:1rem;font-weight:400;'>(demo)</span>",
+        "<span style='color:red !important;font-size:1rem;font-weight:400;'>(demo)</span>",
         unsafe_allow_html=True
     )
     st.markdown("Automated menu extraction and competitor tracking.")
