@@ -108,6 +108,9 @@ st.markdown("""
     /* Markdown text */
     .stMarkdown, .stMarkdown p { color: #1c1c1c !important; }
 
+    /* Demo badge — must override the global span rule */
+    span.demo-badge { color: #e00000 !important; }
+
     /* ── MOBILE RESPONSIVE ── */
     @media (max-width: 768px) {
 
@@ -514,7 +517,7 @@ with col_logo:
 with col_title:
     st.markdown(
         "# Aziz Delicatesse: Competitor Price Intelligence "
-        "<span style='color:red !important;font-size:1rem;font-weight:400;'>(demo)</span>",
+        "<span class='demo-badge' style='font-size:1rem;font-weight:400;'>(demo)</span>",
         unsafe_allow_html=True
     )
     st.markdown("Automated menu extraction and competitor tracking.")
