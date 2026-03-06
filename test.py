@@ -166,21 +166,22 @@ def analyze_menu_image(image, filename="Unknown"):
         base64_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
         prompt = """
-        You are an expert data extractor. Look at this restaurant menu image carefully.
+        You are an expert data extractor. Look at this restaurant/patisserie menu image carefully.
+        The prices on this menu are in US Dollars (USD). Extract them as decimal USD values.
 
         STEP 1: Find the restaurant name. It is usually the largest text at the top, on the header, logo, or watermark of the menu. You MUST return this.
-        STEP 2: Extract every food/drink item, its weight/size/quantity if shown, and its price exactly as written. Do NOT convert or change the currency.
+        STEP 2: Extract every food/drink item, its weight/size if shown, and its USD price.
 
         Return ONLY a raw JSON object in EXACTLY this format, nothing else:
         {
           "restaurant": "The Restaurant Name Here",
-          "items": [{"item": "Item Name", "weight": "250g", "price": 150000}]
+          "items": [{"item": "Item Name", "weight": "250g", "price": 12.50}]
         }
 
         Rules:
         - "restaurant" must be a string — never null or empty. If truly not visible, make your best guess from any branding visible.
-        - "weight" is the portion size, weight, or volume shown on the menu (e.g. "250g", "500ml", "1kg", "Large", "per piece"). Use null if not mentioned.
-        - "price" must be a plain number with no currency symbols, spaces, or commas.
+        - "weight" must ONLY be a gram/kilogram/millilitre/litre measurement (e.g. "250g", "500ml", "1kg", "1.5kg"). Use null if the item is sold per piece, per portion, or no weight is shown.
+        - "price" must be the USD dollar amount as a plain decimal number (e.g. 12.50). No currency symbols, no commas.
         - Do NOT wrap the response in markdown or code blocks.
         """
 
@@ -287,29 +288,31 @@ with st.sidebar:
         st.session_state["authenticated"] = False
         st.rerun()
 
-    tab_files, tab_folder = st.tabs(["Individual Files", "Folder Path"])
+    # images_to_process: list of (filename, file_ref, restaurant_label)
+    images_to_process = []
 
-    images_to_process = []  # list of (name, file_ref) — file_ref is UploadedFile or Path
+    st.markdown("#### Aziz Delicatesse")
+    aziz_files = st.file_uploader(
+        "Upload Aziz menu images",
+        type=['png', 'jpg', 'jpeg', 'webp'],
+        accept_multiple_files=True,
+        key="aziz_uploader"
+    )
+    if aziz_files:
+        images_to_process += [(f.name, f, "Aziz") for f in aziz_files]
+        st.success(f"{len(aziz_files)} Aziz image(s) ready.")
 
-    with tab_files:
-        uploaded_files = st.file_uploader("Choose images", type=['png', 'jpg', 'jpeg', 'webp'], accept_multiple_files=True)
-        if uploaded_files:
-            images_to_process = [(f.name, f) for f in uploaded_files]
-            st.success(f"{len(images_to_process)} file(s) ready.")
-
-    with tab_folder:
-        folder_path = st.text_input("Paste folder path", placeholder="/Users/you/menus/")
-        if folder_path:
-            folder = Path(folder_path)
-            if folder.is_dir():
-                found = [p for p in sorted(folder.rglob("*")) if p.suffix.lower() in IMAGE_EXTENSIONS]
-                if found:
-                    images_to_process = [(p.name, p) for p in found]
-                    st.success(f"{len(images_to_process)} image(s) found in folder.")
-                else:
-                    st.warning("No images found in that folder.")
-            else:
-                st.error("Path not found or is not a folder.")
+    st.markdown("---")
+    st.markdown("#### Noura")
+    noura_files = st.file_uploader(
+        "Upload Noura menu images",
+        type=['png', 'jpg', 'jpeg', 'webp'],
+        accept_multiple_files=True,
+        key="noura_uploader"
+    )
+    if noura_files:
+        images_to_process += [(f.name, f, "Noura") for f in noura_files]
+        st.success(f"{len(noura_files)} Noura image(s) ready.")
 
     if images_to_process:
         if st.button("🔍 Analyze Menus"):
@@ -319,20 +322,20 @@ with st.sidebar:
                 completed = 0
 
                 # Read images in main thread (UploadedFile is not thread-safe)
-                loaded = [(name, Image.open(file_ref).copy()) for name, file_ref in images_to_process]
+                loaded = [(name, Image.open(file_ref).copy(), label) for name, file_ref, label in images_to_process]
 
-                def process_one(name, img):
-                    return name, img, analyze_menu_image(img, filename=name)
+                def process_one(name, img, label):
+                    return name, img, label, analyze_menu_image(img, filename=name)
 
                 with ThreadPoolExecutor(max_workers=4) as executor:
-                    futures = {executor.submit(process_one, name, img): name
-                               for name, img in loaded}
+                    futures = {executor.submit(process_one, name, img, label): name
+                               for name, img, label in loaded}
 
                     for future in as_completed(futures):
-                        name, img, (df_part, restaurant) = future.result()
-                        st.image(img, caption=f"Done: {restaurant}", use_container_width=True)
+                        name, img, label, (df_part, _) = future.result()
+                        st.image(img, caption=f"Done: {label}", use_container_width=True)
                         if df_part is not None:
-                            df_part['Source Menu'] = restaurant
+                            df_part['Source Menu'] = label
                             all_extracted_data.append(df_part)
                         completed += 1
                         progress.progress(completed / len(images_to_process))
@@ -349,11 +352,57 @@ with st.sidebar:
 def _similarity(a, b):
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
+def parse_weight_grams(weight_str):
+    """Parse weight strings like '150g', '1kg', '500ml', '1.5l' → float grams/ml.
+    Returns None for anything that isn't a mass/volume unit (e.g. pieces, portions)."""
+    if not weight_str or pd.isna(weight_str):
+        return None
+    s = str(weight_str).strip().lower()
+    m = re.match(r'^([\d.]+)\s*(kg|g|ml|l)$', s)
+    if not m:
+        return None
+    val = float(m.group(1))
+    unit = m.group(2)
+    if unit in ('kg', 'l'):
+        return val * 1000
+    return val  # g or ml
+
+
+def normalize_group_prices(group_df):
+    """Normalize each item's price to the minimum weight found in the group.
+    Items without a parseable weight are left as-is (display_price == price).
+    Returns group_df with added columns: display_price, compare_weight."""
+    cols = list(group_df.columns)
+    weight_col = group_df['weight'] if 'weight' in cols else pd.Series([None] * len(group_df))
+    weights_g = weight_col.apply(parse_weight_grams)
+    valid = weights_g.dropna()
+
+    group_df = group_df.copy()
+    group_df['_wg'] = weights_g
+
+    if valid.empty:
+        group_df['display_price'] = group_df['price']
+        group_df['compare_weight'] = None
+    else:
+        min_w = valid.min()
+        group_df['display_price'] = group_df.apply(
+            lambda r: r['price'] * (min_w / r['_wg']) if pd.notna(r['_wg']) else r['price'],
+            axis=1
+        )
+        group_df['compare_weight'] = group_df['_wg'].apply(
+            lambda w: min_w if pd.notna(w) else None
+        )
+    return group_df.drop(columns=['_wg'])
+
+
 def group_similar_items(df, threshold=0.6):
     """Clusters similar item names across menus. Returns groups with items from 2+ menus."""
-    rows = df[['item', 'price', 'Source Menu']].copy().reset_index(drop=True)
-    group_indices = []   # list of lists of row indices
-    group_labels = []    # canonical (first-seen) name per group
+    keep_cols = ['item', 'price', 'Source Menu']
+    if 'weight' in df.columns:
+        keep_cols.append('weight')
+    rows = df[keep_cols].copy().reset_index(drop=True)
+    group_indices = []
+    group_labels = []
 
     for idx, row in rows.iterrows():
         norm = row['item'].lower().strip()
@@ -463,7 +512,11 @@ col_logo, col_title = st.columns([1, 5])
 with col_logo:
     st.image(str(logo_path), width=200)
 with col_title:
-    st.title("Aziz Delicatesse: Competitor Price Intelligence")
+    st.markdown(
+        "# Aziz Delicatesse: Competitor Price Intelligence "
+        "<span style='color:red;font-size:1rem;font-weight:400;'>(demo)</span>",
+        unsafe_allow_html=True
+    )
     st.markdown("Automated menu extraction and competitor tracking.")
 st.markdown("---")
 
@@ -504,14 +557,17 @@ with tab_intel:
             col_colors = {rest: RESTAURANT_COLORS[i % len(RESTAURANT_COLORS)]
                           for i, rest in enumerate(all_restaurants)}
 
-            # Build pivot table
+            # Build pivot table with weight-normalized USD prices
             table_rows = []
             for label, group_df in groups:
+                normalized = normalize_group_prices(group_df)
                 row = {'Item': label}
-                for _, r in group_df.iterrows():
-                    price_str = f"LBP {r['price']:,.0f}"
-                    if 'weight' in r and pd.notna(r['weight']) and r['weight']:
-                        price_str += f"  ({r['weight']})"
+                for _, r in normalized.iterrows():
+                    price_str = f"${r['display_price']:.2f}"
+                    cw = r.get('compare_weight')
+                    if pd.notna(cw) and cw:
+                        w_label = f"{int(cw)}g" if cw == int(cw) else f"{cw}g"
+                        price_str += f" / {w_label}"
                     row[r['Source Menu']] = price_str
                 table_rows.append(row)
 
@@ -545,30 +601,43 @@ with tab_intel:
             st.markdown("---")
             st.subheader("Price Comparison Chart")
 
-            # Build long-form dataframe for chart
+            # Build long-form dataframe for chart using weight-normalized USD prices
             chart_rows = []
             for label, group_df in groups:
-                for _, r in group_df.iterrows():
+                normalized = normalize_group_prices(group_df)
+                for _, r in normalized.iterrows():
+                    cw = r.get('compare_weight')
+                    weight_note = ""
+                    if pd.notna(cw) and cw:
+                        w_label = f"{int(cw)}g" if cw == int(cw) else f"{cw}g"
+                        weight_note = f" / {w_label}"
                     chart_rows.append({
-                        'Item': label,
+                        'Item': label + weight_note,
                         'Restaurant': r['Source Menu'],
-                        'Price': r['price'],
+                        'Price (USD)': round(r['display_price'], 2),
                     })
             chart_df = pd.DataFrame(chart_rows)
 
-            # Use solid chart colours (distinct from the pastel table colours)
+            # Keep only the 3 items with the largest price difference across restaurants
+            price_spread = (
+                chart_df.groupby('Item')['Price (USD)']
+                .agg(lambda x: x.max() - x.min())
+                .nlargest(3)
+            )
+            chart_df = chart_df[chart_df['Item'].isin(price_spread.index)]
+
             CHART_COLORS = ['#2a9d8f', '#e07b39', '#e63946', '#457b9d', '#f4a261', '#6a4c93']
             chart_color_map = {rest: CHART_COLORS[i % len(CHART_COLORS)]
                                for i, rest in enumerate(all_restaurants)}
 
             fig = px.bar(
-                chart_df, x='Item', y='Price', color='Restaurant',
-                barmode='group', text='Price',
-                title="Price Comparison Across Restaurants",
+                chart_df, x='Item', y='Price (USD)', color='Restaurant',
+                barmode='group', text='Price (USD)',
+                title="Price Comparison Across Restaurants (USD)",
                 color_discrete_map=chart_color_map,
-                labels={'Price': 'Price (LBP)', 'Item': 'Menu Item'}
+                labels={'Price (USD)': 'Price (USD)', 'Item': 'Menu Item'}
             )
-            fig.update_traces(texttemplate='LBP %{text:,.0f}', textposition='outside')
+            fig.update_traces(texttemplate='$%{text:.2f}', textposition='outside')
             fig.update_layout(margin=dict(t=50, b=20), xaxis_tickangle=-30, template="plotly_white")
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
