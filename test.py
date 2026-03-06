@@ -605,19 +605,22 @@ with tab_intel:
             st.subheader("Price Comparison Chart")
 
             # Build long-form dataframe for chart using weight-normalized USD prices
+            # Always use the canonical group label as x-axis so bars group correctly.
+            # Weight note goes into bar label text only.
             chart_rows = []
             for label, group_df in groups:
                 normalized = normalize_group_prices(group_df)
                 for _, r in normalized.iterrows():
                     cw = r.get('compare_weight')
-                    weight_note = ""
+                    bar_text = f"${r['display_price']:.2f}"
                     if pd.notna(cw) and cw:
                         w_label = f"{int(cw)}g" if cw == int(cw) else f"{cw}g"
-                        weight_note = f" / {w_label}"
+                        bar_text += f" /{w_label}"
                     chart_rows.append({
-                        'Item': label + weight_note,
+                        'Item': label,           # same canonical label for every row in the group
                         'Restaurant': r['Source Menu'],
                         'Price (USD)': round(r['display_price'], 2),
+                        'Label': bar_text,
                     })
             chart_df = pd.DataFrame(chart_rows)
 
@@ -635,12 +638,12 @@ with tab_intel:
 
             fig = px.bar(
                 chart_df, x='Item', y='Price (USD)', color='Restaurant',
-                barmode='group', text='Price (USD)',
+                barmode='group', text='Label',
                 title="Price Comparison Across Restaurants (USD)",
                 color_discrete_map=chart_color_map,
                 labels={'Price (USD)': 'Price (USD)', 'Item': 'Menu Item'}
             )
-            fig.update_traces(texttemplate='$%{text:.2f}', textposition='outside')
+            fig.update_traces(texttemplate='%{text}', textposition='outside')
             fig.update_layout(margin=dict(t=50, b=20), xaxis_tickangle=-30, template="plotly_white")
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
