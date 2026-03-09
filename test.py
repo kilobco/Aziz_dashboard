@@ -399,25 +399,31 @@ def normalize_group_prices(group_df):
 
 
 def group_similar_items(df, threshold=0.6):
-    """Clusters similar item names across menus. Returns groups with items from 2+ menus."""
+    """Clusters similar item names across menus. Returns groups with items from 2+ menus.
+    Enforces one item per restaurant per group so no item gets swallowed into an existing group
+    that already has a representative from the same restaurant."""
     keep_cols = ['item', 'price', 'Source Menu']
     if 'weight' in df.columns:
         keep_cols.append('weight')
     rows = df[keep_cols].copy().reset_index(drop=True)
     group_indices = []
     group_labels = []
+    group_menus  = []   # set of Source Menu values already in each group
 
     for idx, row in rows.iterrows():
         norm = row['item'].lower().strip()
+        source = row['Source Menu']
         matched = False
         for g_idx, label in enumerate(group_labels):
-            if _similarity(norm, label) >= threshold:
+            if _similarity(norm, label) >= threshold and source not in group_menus[g_idx]:
                 group_indices[g_idx].append(idx)
+                group_menus[g_idx].add(source)
                 matched = True
                 break
         if not matched:
             group_indices.append([idx])
             group_labels.append(norm)
+            group_menus.append({source})
 
     result = []
     for indices, label in zip(group_indices, group_labels):
