@@ -562,48 +562,6 @@ with tab_intel:
             col_colors = {rest: RESTAURANT_COLORS[i % len(RESTAURANT_COLORS)]
                           for i, rest in enumerate(all_restaurants)}
 
-            # Build pivot table with weight-normalized USD prices
-            table_rows = []
-            for label, group_df in groups:
-                normalized = normalize_group_prices(group_df)
-                row = {'Item': label}
-                for _, r in normalized.iterrows():
-                    price_str = f"${r['display_price']:.2f}"
-                    cw = r.get('compare_weight')
-                    if pd.notna(cw) and cw:
-                        w_label = f"{int(cw)}g" if cw == int(cw) else f"{cw}g"
-                        price_str += f" / {w_label}"
-                    row[r['Source Menu']] = price_str
-                table_rows.append(row)
-
-            pivot_df = pd.DataFrame(table_rows).set_index('Item').fillna('—')
-
-            # Render as HTML table so CSS can fully control light/dark styling
-            header_cells = "<th style='background:#2a2a2a;color:#ffffff;padding:8px 12px;text-align:left;'>Item</th>"
-            for col in pivot_df.columns:
-                bg = col_colors.get(col, '#ffffff')
-                header_cells += f"<th style='background:{bg};color:#1c1c1c;padding:8px 12px;text-align:left;border-left:1px solid #ddd;'>{col}</th>"
-
-            body_rows = ""
-            for i, (item, row) in enumerate(pivot_df.iterrows()):
-                row_bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
-                body_rows += f"<tr><td style='background:{row_bg};color:#1c1c1c;padding:8px 12px;font-weight:600;border-top:1px solid #eee;'>{item}</td>"
-                for col in pivot_df.columns:
-                    cell_bg = col_colors.get(col, row_bg)
-                    body_rows += f"<td style='background:{cell_bg};color:#1c1c1c;padding:8px 12px;border-left:1px solid #ddd;border-top:1px solid #eee;'>{row[col]}</td>"
-                body_rows += "</tr>"
-
-            html_table = f"""
-            <div style='overflow-x:auto;border-radius:8px;border:1px solid #ddd;'>
-            <table style='width:100%;border-collapse:collapse;font-family:Georgia,serif;font-size:0.9rem;'>
-                <thead><tr>{header_cells}</tr></thead>
-                <tbody>{body_rows}</tbody>
-            </table></div>"""
-            st.markdown(html_table, unsafe_allow_html=True)
-
-
-
-            st.markdown("---")
             st.subheader("Price Comparison Chart")
 
             # Build long-form dataframe for chart using weight-normalized USD prices
@@ -648,6 +606,47 @@ with tab_intel:
             fig.update_traces(texttemplate='%{text}', textposition='outside')
             fig.update_layout(margin=dict(t=50, b=20), xaxis_tickangle=-30, template="plotly_white")
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown("---")
+            st.subheader(f"🔍 {len(groups)} Matched Item Group(s) Across Menus")
+
+            # Build pivot table with weight-normalized USD prices
+            table_rows = []
+            for label, group_df in groups:
+                normalized = normalize_group_prices(group_df)
+                row = {'Item': label}
+                for _, r in normalized.iterrows():
+                    price_str = f"${r['display_price']:.2f}"
+                    cw = r.get('compare_weight')
+                    if pd.notna(cw) and cw:
+                        w_label = f"{int(cw)}g" if cw == int(cw) else f"{cw}g"
+                        price_str += f" / {w_label}"
+                    row[r['Source Menu']] = price_str
+                table_rows.append(row)
+
+            pivot_df = pd.DataFrame(table_rows).set_index('Item').fillna('—')
+
+            header_cells = "<th style='background:#2a2a2a;color:#ffffff;padding:8px 12px;text-align:left;'>Item</th>"
+            for col in pivot_df.columns:
+                bg = col_colors.get(col, '#ffffff')
+                header_cells += f"<th style='background:{bg};color:#1c1c1c;padding:8px 12px;text-align:left;border-left:1px solid #ddd;'>{col}</th>"
+
+            body_rows = ""
+            for i, (item, row) in enumerate(pivot_df.iterrows()):
+                row_bg = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+                body_rows += f"<tr><td style='background:{row_bg};color:#1c1c1c;padding:8px 12px;font-weight:600;border-top:1px solid #eee;'>{item}</td>"
+                for col in pivot_df.columns:
+                    cell_bg = col_colors.get(col, row_bg)
+                    body_rows += f"<td style='background:{cell_bg};color:#1c1c1c;padding:8px 12px;border-left:1px solid #ddd;border-top:1px solid #eee;'>{row[col]}</td>"
+                body_rows += "</tr>"
+
+            html_table = f"""
+            <div style='overflow-x:auto;border-radius:8px;border:1px solid #ddd;'>
+            <table style='width:100%;border-collapse:collapse;font-family:Georgia,serif;font-size:0.9rem;'>
+                <thead><tr>{header_cells}</tr></thead>
+                <tbody>{body_rows}</tbody>
+            </table></div>"""
+            st.markdown(html_table, unsafe_allow_html=True)
 
         else:
             st.info("No matching items found across menus. Try lowering the similarity threshold above.")
