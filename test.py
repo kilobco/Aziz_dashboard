@@ -543,7 +543,7 @@ with tab_intel:
             st.dataframe(current_df, use_container_width=True)
 
         with st.expander("⚙️ Advanced settings"):
-            threshold = st.slider("Similarity threshold for matching items", 0.3, 1.0, 0.6, 0.05,
+            threshold = st.slider("Similarity threshold for matching items", 0.1, 1.0, 0.2, 0.05,
                                   help="Lower = more lenient matching. Raise if unrelated items are being grouped.")
         groups = group_similar_items(current_df, threshold)
 
