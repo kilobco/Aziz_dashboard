@@ -511,17 +511,15 @@ def parse_item_rows(df):
 # MAIN DASHBOARD AREA
 # -----------------------------------------
 logo_path = Path(__file__).parent / "data" / "aziz-artguru.png"
-col_logo, col_title = st.columns([1, 5])
+col_logo, col_title = st.columns([1, 8])
 with col_logo:
-    st.image(str(logo_path), width=200)
+    st.image(str(logo_path), width=80)
 with col_title:
     st.markdown(
         "# Aziz Delicatesse: Competitor Price Intelligence "
         "<span class='demo-badge' style='font-size:1rem;font-weight:400;'>(demo)</span>",
         unsafe_allow_html=True
     )
-    st.markdown("Automated menu extraction and competitor tracking.")
-st.markdown("---")
 
 tab_intel, tab_analytics = st.tabs(["🔍 Price Intelligence", "📊 Analytics"])
 
@@ -544,11 +542,9 @@ with tab_intel:
         with st.expander("📋 All Extracted Raw Data", expanded=False):
             st.dataframe(current_df, use_container_width=True)
 
-        st.markdown("---")
-
-        threshold = st.slider("Similarity threshold for matching items", 0.3, 1.0, 0.6, 0.05,
-                              help="Lower = more lenient matching. Raise if unrelated items are being grouped.")
-
+        with st.expander("⚙️ Advanced settings"):
+            threshold = st.slider("Similarity threshold for matching items", 0.3, 1.0, 0.6, 0.05,
+                                  help="Lower = more lenient matching. Raise if unrelated items are being grouped.")
         groups = group_similar_items(current_df, threshold)
 
         if groups:
